@@ -12,7 +12,7 @@ some_dir $ alias sequelizer='<whatever_your_path_is>/build/sequelizer'
 ```
 Now you can run Sequelizer commands with `sequelizer`.  The examples below assume you have done this.
 
-## A Look at Fast5 Files
+## Sequelizer Examines Fast5's
 You can use Sequelizer to analyze Fast5 files.  A mature file format that holds nanopore information, both raw DNA measurements and lots of useful metadata.  We (and you?) want circuits, computers, programs, networks working on this data to extract relevant genomic inisights anytime, anywhere.
 
 To play around you'll want some Fast5 files on your system.  Here's how to download a sample dataset 
@@ -25,10 +25,10 @@ some_dir $ tar -xvf sample_fast5.tar
 some_dir $ ls
 ... sample_fast5/ ...
 ```
-Now that you have some data in the `sample_fast5` directory, you can use Sequelizer to analyze the Fast5 files.  Just point it to the directory with the `--recursive` flag to find all Fast5 files within:
+Now that you have some data in the `sample_fast5` directory, you can use Sequelizer to analyze the Fast5 files.  You do this using the package's `fast5` subcommand. Just point it to the directory with the `--recursive` flag to find all Fast5 files within:
 ```bash
 # sequelize it
-some_dir $ ./sequelizer fast5 sample_fast5 --recursive
+some_dir $ sequelizer fast5 sample_fast5 --recursive
 Discovering Fast5 files...
 Found 5 files, analyzing...
 [[████████████████████████████████████████] 100% (5/5)
@@ -51,9 +51,19 @@ What happened?  Sequelizer scanned the Fast5 files, extracted some basic statist
 
 If you want to know a little more about each read that was processed you could ask for a summary report to be made.
 ```bash
-some_dir $ ./sequelizer fast5 sample_fast5 --recursive --summary
+some_dir $ sequelizer fast5 sample_fast5 --recursive --summary
 ```
-This will create a `sequelizer_summary.txt` file in your current directory with a line for each read processed, and some basic statistics about it.
+This will create a `sequelizer_summary.txt` file in your current directory with a line for each read processed, and some basic statistics about it.  For example:
+```text
+#sequelizer_summary_v1.0
+filename	read_id	run_id	channel	start_time	translocation_time	num_samples	median_before
+end_reason_datatype_uint8_t.fast5	008868ec-1f4b-472b-80f7-62fc23f3c51f	355bdcb8c31448c7e96a4113bcfa15c6921e86c3	  11	  105.7	   5.9	 23469	 231.02
+end_reason_differnt_key_order.fast5	007c5024-e963-40ac-abd7-c425594c6404	5c7dcc184bcf81678cbe2cc6387c4bf9908009e7	 341	 1654.1	   1.3	  5298	 210.87
+...
+```
+
+## Sequelizer Converts Fast5's
+
 
 ## Before You Go
 Please help Sequelizer development.  Tell us what else you'd like to see here!

@@ -101,7 +101,7 @@ static void debug_fast5_file(const char *filename) {
 // **********************************************************************
 
 const char *argp_program_version = "sequelizer fast5 1.0";
-const char *argp_program_bug_address = "magierowski@gmail.com";
+const char *argp_program_bug_address = "https://github.com/emilitronic/Sequelizer/issues";
 
 static char doc[] = "sequelizer fast5 -- Fast5 file analysis and debugging\v"
 "EXAMPLES:\n"

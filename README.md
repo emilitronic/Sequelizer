@@ -25,8 +25,8 @@ Main [Sequelizer](https://emilitronic.github.io/Sequelizer/) documentation page 
 ```bash
 # macOS
 brew install argp-standalone hdf5
-# Ubuntu/Debian
-sudo apt-get update && sudo apt-get install -y libargp-dev libhdf5-dev libopenblas-dev pkg-config libcunit1-dev
+# Ubuntu/Debian (may need to drop libargp-dev if argp functionality is already built-in)
+sudo apt-get update && sudo apt-get install -y libhdf5-dev libopenblas-dev pkg-config libcunit1-dev libargp-dev 
 # Build tools
 # CMake 3.23+ and C++17 compiler required
 ```
