@@ -111,3 +111,5 @@ docs/_site
 # Uncomment if you strip outputs or keep notebooks elsewhere
 # *.ipynb
 
+signal.txt
+test_text.txt

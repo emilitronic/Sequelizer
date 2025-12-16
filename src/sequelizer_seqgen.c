@@ -36,12 +36,16 @@ Generates signals from read sequences: squiggle, raw, and event sequences.
  Save BOTH fast5 & txt:              sequelizer seqgen --raw --fast5 --save-text --generate --seq-length 50 --num-sequences 1 --reference debug_ref.fa -o debug_signals.fast5
 
  Read selection examples (--select option):
- Select by name pattern:             sequelizer seqgen --select "6ea6609b" reads.fastq -o selected.txt
- Select single read (10th):          sequelizer seqgen --select "10" reads.fastq -o read10.txt
- Select range (reads 101-110):       sequelizer seqgen --select "101:110" reads.fastq -o range.txt
- Select from 10 to end:              sequelizer seqgen --select "10:" reads.fastq -o from10.txt
- Select first 12 reads:              sequelizer seqgen --select ":12" reads.fastq -o first12.txt
- Combine with Fast5 output:          sequelizer seqgen --raw --fast5 --select "6ea6609b" reads.fastq -o selected.fast5
+ Select by name pattern:             sequelizer seqgen --select 6ea6609b reads.fastq -o selected.txt
+ Select single read (10th):          sequelizer seqgen --select 10 reads.fastq -o read10.txt
+ Select range (reads 101-110):       sequelizer seqgen --select 101:110 reads.fastq -o range.txt
+ Select from 10 to end:              sequelizer seqgen --select 10: reads.fastq -o from10.txt
+ Select first 12 reads:              sequelizer seqgen --select :12 reads.fastq -o first12.txt
+ Select multiple reads (1,5,6):      sequelizer seqgen --select 1,5,6 reads.fastq -o selected.txt
+ Select mixed (1-2 and 8-12):        sequelizer seqgen --select 1:2,8:12 reads.fastq -o mixed.txt
+ Select by multiple names:           sequelizer seqgen --select 6ea6609b,7b02d4c4 reads.fastq -o names.txt
+ Complex selection:                  sequelizer seqgen --select 1,5:10,15,20: reads.fastq -o complex.txt
+ Combine with Fast5 output:          sequelizer seqgen --raw --fast5 --select 1,5,6 reads.fastq -o selected.fast5
 
  Notes:
   - design: Input (FASTA or synthetic) -> sequelizer_seqgen.c (CLI tool) -> seqgen_utils.c (high-level wrapper) ->
@@ -278,7 +282,7 @@ static int count_total_sequences(char **files, int nfile) {
 }
 
 // **********************************************************************
-// Read Selection Infrastructure
+// Read Selection Infrastructure (--select, -x option)
 // **********************************************************************
 
 // Selection modes for filtering reads
@@ -289,8 +293,8 @@ enum select_mode {
   SELECT_RANGE,    // Range: --select "101:110", "10:", ":12"
 };
 
-// Selection criteria structure
-struct select_criteria {
+// Single selection criterion (used for both simple and compound selections)
+struct select_criterion {
   enum select_mode mode;
   union {
     char *name_pattern;    // For SELECT_NAME
@@ -301,34 +305,57 @@ struct select_criteria {
   } params;
 };
 
-// Parse selection string and populate criteria structure
+// Main selection criteria structure (can hold multiple comma-separated criteria)
+struct select_criteria {
+  struct select_criterion *criteria;  // Array of criteria
+  int count;                           // Number of criteria (1 for simple, >1 for comma-separated)
+};
+
+// Parse a single selection segment (no commas) into a criterion
 // Returns 0 on success, -1 on error
-static int parse_select_criteria(const char *select_str, struct select_criteria *criteria) {
-  if (!select_str || !criteria) {
+static int parse_single_criterion(const char *segment, struct select_criterion *criterion) {
+  if (!segment || !criterion) {
+    return -1;
+  }
+
+  // Trim leading/trailing whitespace
+  while (*segment == ' ' || *segment == '\t') segment++;
+  size_t len = strlen(segment);
+  while (len > 0 && (segment[len-1] == ' ' || segment[len-1] == '\t')) len--;
+
+  if (len == 0) {
+    return -1; // Empty segment
+  }
+
+  // Create a clean copy of the segment
+  char *clean_segment = strndup(segment, len);
+  if (!clean_segment) {
     return -1;
   }
 
   // Check if string contains ':' (range syntax)
-  const char *colon = strchr(select_str, ':');
+  const char *colon = strchr(clean_segment, ':');
 
   if (colon != NULL) {
     // RANGE MODE: "start:end", ":end", or "start:"
-    criteria->mode = SELECT_RANGE;
+    criterion->mode = SELECT_RANGE;
 
     // Parse start index
-    if (colon == select_str) {
+    if (colon == clean_segment) {
       // ":12" format - from beginning
-      criteria->params.range.start = -1;
+      criterion->params.range.start = -1;
     } else {
       char start_str[32];
-      size_t start_len = colon - select_str;
+      size_t start_len = colon - clean_segment;
       if (start_len >= sizeof(start_str)) {
+        free(clean_segment);
         return -1; // String too long
       }
-      strncpy(start_str, select_str, start_len);
+      strncpy(start_str, clean_segment, start_len);
       start_str[start_len] = '\0';
-      criteria->params.range.start = atoi(start_str);
-      if (criteria->params.range.start < 1) {
+      criterion->params.range.start = atoi(start_str);
+      if (criterion->params.range.start < 1) {
+        free(clean_segment);
         return -1; // Invalid start index
       }
     }
@@ -336,78 +363,151 @@ static int parse_select_criteria(const char *select_str, struct select_criteria 
     // Parse end index
     if (*(colon + 1) == '\0') {
       // "10:" format - to end
-      criteria->params.range.end = -1;
+      criterion->params.range.end = -1;
     } else {
-      criteria->params.range.end = atoi(colon + 1);
-      if (criteria->params.range.end < 1) {
+      criterion->params.range.end = atoi(colon + 1);
+      if (criterion->params.range.end < 1) {
+        free(clean_segment);
         return -1; // Invalid end index
       }
     }
 
+    free(clean_segment);
     return 0;
   }
 
   // Check if string is purely numeric (single index)
   bool is_numeric = true;
-  for (const char *p = select_str; *p != '\0'; p++) {
+  for (const char *p = clean_segment; *p != '\0'; p++) {
     if (!isdigit(*p)) {
       is_numeric = false;
       break;
     }
   }
 
-  if (is_numeric && strlen(select_str) > 0) {
+  if (is_numeric && strlen(clean_segment) > 0) {
     // INDEX MODE: "10"
-    criteria->mode = SELECT_INDEX;
-    int index = atoi(select_str);
+    criterion->mode = SELECT_INDEX;
+    int index = atoi(clean_segment);
     if (index < 1) {
+      free(clean_segment);
       return -1; // Invalid index
     }
-    criteria->params.range.start = index;
-    criteria->params.range.end = index;
+    criterion->params.range.start = index;
+    criterion->params.range.end = index;
+    free(clean_segment);
     return 0;
   }
 
   // NAME MODE: anything else is treated as a name pattern
-  criteria->mode = SELECT_NAME;
-  criteria->params.name_pattern = strdup(select_str);
-  if (!criteria->params.name_pattern) {
-    return -1; // Memory allocation failed
+  criterion->mode = SELECT_NAME;
+  criterion->params.name_pattern = clean_segment; // Transfer ownership
+  return 0;
+}
+
+// Parse selection string (potentially comma-separated) and populate criteria structure
+// Returns 0 on success, -1 on error
+static int parse_select_criteria(const char *select_str, struct select_criteria *criteria) {
+  if (!select_str || !criteria) {
+    return -1;
+  }
+
+  // Initialize criteria structure
+  criteria->criteria = NULL;
+  criteria->count = 0;
+
+  // Count commas to estimate number of segments
+  int comma_count = 0;
+  for (const char *p = select_str; *p != '\0'; p++) {
+    if (*p == ',') comma_count++;
+  }
+  int max_segments = comma_count + 1;
+
+  // Allocate array for criteria
+  criteria->criteria = calloc(max_segments, sizeof(struct select_criterion));
+  if (!criteria->criteria) {
+    return -1;
+  }
+
+  // Parse each comma-separated segment
+  const char *segment_start = select_str;
+  const char *p = select_str;
+  int segment_count = 0;
+
+  while (1) {
+    if (*p == ',' || *p == '\0') {
+      // Found end of segment
+      size_t segment_len = p - segment_start;
+      if (segment_len > 0) {
+        char *segment = strndup(segment_start, segment_len);
+        if (!segment) {
+          // Cleanup and return error
+          for (int i = 0; i < segment_count; i++) {
+            if (criteria->criteria[i].mode == SELECT_NAME &&
+                criteria->criteria[i].params.name_pattern) {
+              free(criteria->criteria[i].params.name_pattern);
+            }
+          }
+          free(criteria->criteria);
+          criteria->criteria = NULL;
+          criteria->count = 0;
+          return -1;
+        }
+
+        // Parse this segment
+        if (parse_single_criterion(segment, &criteria->criteria[segment_count]) == 0) {
+          segment_count++;
+        }
+        free(segment);
+      }
+
+      if (*p == '\0') break;
+      segment_start = p + 1;
+    }
+    p++;
+  }
+
+  criteria->count = segment_count;
+
+  if (segment_count == 0) {
+    free(criteria->criteria);
+    criteria->criteria = NULL;
+    return -1; // No valid segments found
   }
 
   return 0;
 }
 
-// Check if a read should be processed based on selection criteria
+// Check if a read matches a single criterion
 // read_index is 1-based (first read = 1)
-static bool should_process_read(const struct select_criteria *criteria,
-                                const char *read_name,
-                                int read_index) {
-  if (!criteria) {
-    return true; // No criteria = process all
+static bool matches_criterion(const struct select_criterion *criterion,
+                              const char *read_name,
+                              int read_index) {
+  if (!criterion) {
+    return false;
   }
 
-  switch (criteria->mode) {
+  switch (criterion->mode) {
     case SELECT_ALL:
       return true;
 
     case SELECT_NAME:
       // Check if read name contains the pattern
-      if (read_name && criteria->params.name_pattern) {
-        return strstr(read_name, criteria->params.name_pattern) != NULL;
+      if (read_name && criterion->params.name_pattern) {
+        return strstr(read_name, criterion->params.name_pattern) != NULL;
       }
       return false;
 
     case SELECT_INDEX:
       // Single index match
-      return (read_index == criteria->params.range.start);
+      return (read_index == criterion->params.range.start);
 
     case SELECT_RANGE:
       // Range check
-      if (criteria->params.range.start != -1 && read_index < criteria->params.range.start) {
+      if (criterion->params.range.start != -1 && read_index < criterion->params.range.start) {
         return false; // Before range start
       }
-      if (criteria->params.range.end != -1 && read_index > criteria->params.range.end) {
+      if (criterion->params.range.end != -1 && read_index > criterion->params.range.end) {
         return false; // After range end
       }
       return true;
@@ -417,12 +517,45 @@ static bool should_process_read(const struct select_criteria *criteria,
   }
 }
 
+// Check if a read should be processed based on selection criteria
+// Returns true if read matches ANY criterion (OR logic for comma-separated selections)
+// read_index is 1-based (first read = 1)
+static bool should_process_read(const struct select_criteria *criteria,
+                                const char *read_name,
+                                int read_index) {
+  if (!criteria || criteria->count == 0) {
+    return true; // No criteria = process all
+  }
+
+  // Check if read matches ANY criterion (OR logic)
+  for (int i = 0; i < criteria->count; i++) {
+    if (matches_criterion(&criteria->criteria[i], read_name, read_index)) {
+      return true;
+    }
+  }
+
+  return false; // No criteria matched
+}
+
 // Clean up selection criteria (free allocated memory)
 static void free_select_criteria(struct select_criteria *criteria) {
-  if (criteria && criteria->mode == SELECT_NAME && criteria->params.name_pattern) {
-    free(criteria->params.name_pattern);
-    criteria->params.name_pattern = NULL;
+  if (!criteria || !criteria->criteria) {
+    return;
   }
+
+  // Free each criterion in the array
+  for (int i = 0; i < criteria->count; i++) {
+    if (criteria->criteria[i].mode == SELECT_NAME &&
+        criteria->criteria[i].params.name_pattern) {
+      free(criteria->criteria[i].params.name_pattern);
+      criteria->criteria[i].params.name_pattern = NULL;
+    }
+  }
+
+  // Free the array itself
+  free(criteria->criteria);
+  criteria->criteria = NULL;
+  criteria->count = 0;
 }
 
 // **********************************************************************
@@ -442,7 +575,7 @@ static struct argp_option options[] = {
   {"models-dir",    'd', "path",       0, "K-mer models directory (default: 'kmer_models')"},
   {"kmer-size",     'k', "size",       0, "K-mer size for k-mer model (default: 5)"},
   {"limit",         'l', "nreads",     0, "Maximum number of reads to call (0 is unlimited)"},
-  {"select",        'x', "pattern",    0, "Select reads: name pattern, index (10), range (101:110), or open range (10: or :12)"},
+  {"select",        'x', "pattern",    0, "Select reads: name, index (10), range (1:10), or comma-separated (1,5,6 or 1:2,8:12)"},
   {"output",        'o', "filename",   0, "Write to file rather than stdout"},
   {"prefix",        'p', "string",     0, "Prefix to append to name of each read"},
   {"rescale",        1,  0,            0, "Rescale network output"},
@@ -609,8 +742,8 @@ int main_seqgen(int argc, char *argv[]) {
   arguments.models_dir = "kmer_models";
   arguments.kmer_size = 5;
   arguments.limit = 0;
-  arguments.select.mode = SELECT_ALL;  // No filtering by default
-  arguments.select.params.name_pattern = NULL;
+  arguments.select.criteria = NULL;  // No filtering by default
+  arguments.select.count = 0;
   arguments.output = NULL;
   arguments.output_filename = NULL;
   arguments.prefix = "";
@@ -804,7 +937,7 @@ int main_seqgen(int argc, char *argv[]) {
     }
 
     // ======================================================================
-    // STEP 4.2: Apply read selection filtering
+    // STEP 4.2: Apply read selection filtering (--select / -x option)
     // ======================================================================
     // Check if this read should be processed based on selection criteria
     // Note: reads_started is 1-based (first read = 1)
@@ -829,7 +962,7 @@ int main_seqgen(int argc, char *argv[]) {
     printf("seq length %zu\n", seq->seq.l);
 
     // ======================================================================
-    // STEP 4.2: Set up model parameters for k-mer dispatcher
+    // STEP 4.3: Set up model parameters for k-mer dispatcher
     // ======================================================================
     struct seqgen_model_params model_params = {
       .model_type = SEQGEN_MODEL_KMER,
@@ -844,7 +977,7 @@ int main_seqgen(int argc, char *argv[]) {
     };
 
     // ======================================================================
-    // STEP 4.3: Generate squiggle data from sequence
+    // STEP 4.4: Generate squiggle data from sequence
     // This calls sequence_to_squiggle() -> dispatcher -> squiggle_kmer()
     // ======================================================================
     seq_tensor *squiggle = sequence_to_squiggle(
@@ -861,7 +994,7 @@ int main_seqgen(int argc, char *argv[]) {
       }
 
       // ====================================================================
-      // STEP 4.4: Generate final output based on user's requested format
+      // STEP 4.5: Generate final output based on user's requested format
       // ====================================================================
       if (arguments.generate_raw) {
         // RAW MODE: Convert squiggle events to time-series samples with Gaussian noise

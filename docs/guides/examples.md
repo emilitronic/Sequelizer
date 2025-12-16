@@ -108,7 +108,7 @@ Sequelizer can also plot the raw signal data.  Once you have a set of `.txt` fil
 ```bash
 some_dir $ sequelizer plot ./signals/FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_100_read_ch198_rd2884.txt --title "RAW data"
 ```
-Should produce a plot like this:
+Should produce a plot like this (if you were wondering what DNA looks like, is just a squiggly line):
 
 <img src="../images/RAWdata_example.png" alt="Signal Plot" width="30%">
 
