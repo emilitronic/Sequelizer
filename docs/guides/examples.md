@@ -63,7 +63,40 @@ end_reason_differnt_key_order.fast5	007c5024-e963-40ac-abd7-c425594c6404	5c7dcc1
 ```
 
 ## Sequelizer Converts Fast5's
+Sequelizer can also convert Fast5 files to other formats (well one format, for now).  For example, you can convert Fast5 files to txt using the `convert` subcommand:
+```bash
+some_dir  $ sequelizer convert sample_fast5 --to raw -r  
+[████████████████████████████████████████] 100% (5/5)
+```
+In this case, the `--to raw` flag tells Sequelizer to convert the Fast5 files to raw text files.  The `-r` flag tells it to search recursively through the `sample_fast5` directory for Fast5 files.  After running this command, you will find `.txt` files in `some_dir`.  For single-read Fast5 files the default file name takes the form `read_ch<channel num>_rd<read num>.txt`.  For multi-read Fast5 files the default file name takes the form `<original fast5 files name>_read_ch<channe _num>_rd<read num>.txt`.  In this example, the Fast5 files in `sample_fast5` are multi-read files, so you should see files like:
+```bash
+some_dir $ ls
+FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_0_read_ch323_rd17.txt
+FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_0_read_ch381_rd59.txt
+FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_0_read_ch412_rd172.txt
+FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_100_read_ch108_rd3140.txt
+...
+```
+By default, `convert` only extracts the first three reads from each Fast5 file that it finds.  You can change this with the `--all` flag which tells Sequelizer to extract all reads from each Fast5 file.
 
+What's inside each `.txt` file?  Behold:
+```text
+# Channel: 198
+# Offset: 6.000000
+# Range: 1440.801147
+# Digitisation: 8192.000000
+# Conversion: signal_pA = (raw_signal + offset) * range / digitisation
+# Sample Rate: 4000.0
+# Read ID: 00213bd6-0b7d-4e96-862f-160852db369a
+#
+sample_index	raw_sample
+0	441
+1	465
+2	484
+3	455
+...
+```
+The header contains metadata about the read, including channel number, offset, range, digitization, conversion formula, sample rate, and read ID.  Below the header is a two-column table with the sample index and the corresponding raw signal value.
 
 ## Before You Go
 Please help Sequelizer development.  Tell us what else you'd like to see here!
