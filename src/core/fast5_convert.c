@@ -183,7 +183,11 @@ int write_signal_to_file(const char *filename, float *signal, size_t signal_leng
     if (metadata->sample_rate > 0) {
       fprintf(f, "# Sample Rate: %.1f\n", metadata->sample_rate);
     }
-    
+
+    if (metadata->duration > 0) {
+      fprintf(f, "# Duration: %u\n", metadata->duration);
+    }
+
     if (metadata->read_id) {
       fprintf(f, "# Read ID: %s\n", metadata->read_id);
     }

@@ -87,6 +87,7 @@ What's inside each `.txt` file?  Behold:
 # Digitisation: 8192.000000
 # Conversion: signal_pA = (raw_signal + offset) * range / digitisation
 # Sample Rate: 4000.0
+# Duration: 3846
 # Read ID: 00213bd6-0b7d-4e96-862f-160852db369a
 #
 sample_index	raw_sample
