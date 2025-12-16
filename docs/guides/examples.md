@@ -68,7 +68,9 @@ Sequelizer can also convert Fast5 files to other formats (well one format, for n
 some_dir  $ sequelizer convert sample_fast5 --to raw -r  
 [████████████████████████████████████████] 100% (5/5)
 ```
-In this case, the `--to raw` flag tells Sequelizer to convert the Fast5 files to raw text files.  The `-r` flag tells it to search recursively through the `sample_fast5` directory for Fast5 files.  After running this command, you will find `.txt` files in `some_dir`.  For single-read Fast5 files the default file name takes the form `read_ch<channel num>_rd<read num>.txt`.  For multi-read Fast5 files the default file name takes the form `<original fast5 files name>_read_ch<channe _num>_rd<read num>.txt`.  In this example, the Fast5 files in `sample_fast5` are multi-read files, so you should see files like:
+In this case, the `--to raw` flag tells Sequelizer to convert the Fast5 files to raw text files.  The `-r` flag tells it to search recursively through the `sample_fast5` directory for Fast5 files.  After running this command, you will find `.txt` files in `some_dir`.  If you want them to go in a different directory, say `some_dir/signals/` then also include the command-line argument `-o signals`.
+
+For single-read Fast5 files the default file name takes the form `read_ch<channel num>_rd<read num>.txt`.  For multi-read Fast5 files the default file name takes the form `<original fast5 files name>_read_ch<channe _num>_rd<read num>.txt`.  In this example, the Fast5 files in `sample_fast5` are multi-read files, so you should see files like:
 ```bash
 some_dir $ ls
 FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_0_read_ch323_rd17.txt
@@ -98,6 +100,15 @@ sample_index	raw_sample
 ...
 ```
 The header contains metadata about the read, including channel number, offset, range, digitization, conversion formula, sample rate, and read ID.  Below the header is a two-column table with the sample index and the corresponding raw signal value.
+
+## Sequelizer Plots Signals
+Sequelizer can also plot the raw signal data.  Once you have a set of `.txt` files (see above) you can use the `plot` subcommand to create plots of the signals.  For example:
+```bash
+some_dir $ sequelizer plot ./signals/FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_100_read_ch198_rd2884.txt --title "RAW data"
+```
+Should produce a plot like this:
+
+<img src="../images/RAWdata_example.png" alt="Signal Plot" width="30%">
 
 ## Before You Go
 Please help Sequelizer development.  Tell us what else you'd like to see here!
