@@ -57,8 +57,10 @@ This will create a `sequelizer_summary.txt` file in your current directory with 
 ```text
 #sequelizer_summary_v1.0
 filename	read_id	run_id	channel	start_time	translocation_time	num_samples	median_before
-end_reason_datatype_uint8_t.fast5	008868ec-1f4b-472b-80f7-62fc23f3c51f	355bdcb8c31448c7e96a4113bcfa15c6921e86c3	  11	  105.7	   5.9	 23469	 231.02
-end_reason_differnt_key_order.fast5	007c5024-e963-40ac-abd7-c425594c6404	5c7dcc184bcf81678cbe2cc6387c4bf9908009e7	 341	 1654.1	   1.3	  5298	 210.87
+FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_0.fast5	00058fe1-e555-4a64-a41b-7f58fb7d6d6b	2bf4f211a2e2d04662e50f27448cfd99dafbd7ee	 381	   52.1	   6.2	 24688	 204.58
+FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_0.fast5	000dd482-c0d5-4520-aa86-8ee8bb61fd58	2bf4f211a2e2d04662e50f27448cfd99dafbd7ee	 323	   12.3	   6.6	 26454	 219.28
+FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_0.fast5	00158d74-4b7f-445a-b0ac-e1606f6c09b7	2bf4f211a2e2d04662e50f27448cfd99dafbd7ee	 412	  111.4	   5.5	 21941	 162.95
+FAK42335_2bf4f211a2e2d04662e50f27448cfd99dafbd7ee_0.fast5	004a0bd2-edcf-4c2c-89bc-009a232cdb6a	2bf4f211a2e2d04662e50f27448cfd99dafbd7ee	 477	  127.8	   6.6	 26345	 202.09
 ...
 ```
 
@@ -109,6 +111,9 @@ some_dir $ sequelizer plot ./signals/FAK42335_2bf4f211a2e2d04662e50f27448cfd99da
 Should produce a plot like this:
 
 <img src="../images/RAWdata_example.png" alt="Signal Plot" width="30%">
+
+## Sequelizer Makes Fake Raw
+
 
 ## Before You Go
 Please help Sequelizer development.  Tell us what else you'd like to see here!
