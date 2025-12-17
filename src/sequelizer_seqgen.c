@@ -70,6 +70,12 @@ Generates signals from read sequences: squiggle, raw, and event sequences.
 #include <argp.h>
 #include <dirent.h>     // For directory scanning (--list_models)
 #include <sys/stat.h>   // For stat() to check if directory (--list_models)
+#include <libgen.h>     // For dirname() to help find kmer_models
+#include <limits.h>     // For PATH_MAX to help find kmer_models
+
+#ifdef __APPLE__
+#include <mach-o/dyld.h>  // For _NSGetExecutablePath() to help find kmer_models
+#endif
 
 #include "core/seqgen_models.h"
 #include "core/seqgen_utils.h"
@@ -79,6 +85,76 @@ Generates signals from read sequences: squiggle, raw, and event sequences.
 #include "core/fast5_io.h"     // Fast5 file writing functions
 
 KSEQ_INIT(int, read) // create a kseq parser that reads from an int fd using the standard C read() system call
+
+// **********************************************************************
+// Helper function to get executable directory to help find kmer_models
+// **********************************************************************
+
+// Get the directory where the executable is located
+// Returns a newly allocated string that must be freed by caller
+// Returns NULL on error
+static char* get_executable_directory(void) {
+  char exe_path[PATH_MAX];
+
+#ifdef __APPLE__
+  // macOS: Use _NSGetExecutablePath
+  uint32_t size = sizeof(exe_path);
+  if (_NSGetExecutablePath(exe_path, &size) != 0) {
+    return NULL;
+  }
+
+  // Resolve symlinks
+  char real_path[PATH_MAX];
+  if (realpath(exe_path, real_path) == NULL) {
+    return NULL;
+  }
+#else
+  // Linux: Read /proc/self/exe
+  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+  if (len == -1) {
+    return NULL;
+  }
+  exe_path[len] = '\0';
+
+  // Use as-is (already resolved)
+  char real_path[PATH_MAX];
+  strncpy(real_path, exe_path, sizeof(real_path) - 1);
+  real_path[sizeof(real_path) - 1] = '\0';
+#endif
+
+  // Get directory part (dirname modifies the string, so copy first)
+  char path_copy[PATH_MAX];
+  strncpy(path_copy, real_path, sizeof(path_copy) - 1);
+  path_copy[sizeof(path_copy) - 1] = '\0';
+
+  char *dir = dirname(path_copy);
+  return strdup(dir);
+}
+
+// Construct path to kmer_models directory relative to executable
+// Returns a newly allocated string that must be freed by caller
+// Returns "kmer_models" as fallback if executable directory can't be determined
+static char* get_default_models_dir(void) {
+  char *exe_dir = get_executable_directory();
+  if (!exe_dir) {
+    // Fallback to relative path if we can't determine executable location
+    return strdup("kmer_models");
+  }
+
+  // Construct path: <exe_dir>/../kmer_models
+  char models_path[PATH_MAX];
+  snprintf(models_path, sizeof(models_path), "%s/../kmer_models", exe_dir);
+  free(exe_dir);
+
+  // Normalize the path (resolve ../)
+  char real_models_path[PATH_MAX];
+  if (realpath(models_path, real_models_path) != NULL) {
+    return strdup(real_models_path);
+  }
+
+  // If realpath fails (directory might not exist yet), return the constructed path
+  return strdup(models_path);
+}
 
 // **********************************************************************
 // Helper functions for kseq synthetic sequences
@@ -597,6 +673,7 @@ static struct argp_option options[] = {
 struct arguments {
   char *model_name;
   char *models_dir;
+  bool models_dir_allocated;  // True if models_dir was allocated and needs freeing
   int kmer_size;
   int limit;
   struct select_criteria select;
@@ -627,7 +704,12 @@ static int parse_arg(int key, char *arg, struct argp_state *state) {
       arguments->model_name = arg;
       break;
     case 'd':
+      // User specified models directory - free default if allocated
+      if (arguments->models_dir_allocated && arguments->models_dir) {
+        free(arguments->models_dir);
+      }
       arguments->models_dir = arg;
+      arguments->models_dir_allocated = false;  // arg is managed by argp
       break;
     case 'k':
       arguments->kmer_size = atoi(arg);
@@ -739,7 +821,8 @@ int main_seqgen(int argc, char *argv[]) {
 
   // Set sensible defaults for all configuration options
   arguments.model_name = "rna_r9.4_180mv_70bps";  // Small 5-mer default for testing
-  arguments.models_dir = "kmer_models";
+  arguments.models_dir = get_default_models_dir();  // Find kmer_models relative to executable
+  arguments.models_dir_allocated = true;  // We allocated this, needs freeing
   arguments.kmer_size = 5;
   arguments.limit = 0;
   arguments.select.criteria = NULL;  // No filtering by default
@@ -1168,6 +1251,11 @@ int main_seqgen(int argc, char *argv[]) {
 
   // Clean up selection criteria
   free_select_criteria(&arguments.select);
+
+  // Clean up models directory if we allocated it
+  if (arguments.models_dir_allocated && arguments.models_dir) {
+    free(arguments.models_dir);
+  }
 
   return EXIT_SUCCESS;
 }
