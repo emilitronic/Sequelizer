@@ -313,25 +313,53 @@ static char* read_string_attribute(hid_t obj_id, const char *attr_name) {
   if (attr_id < 0) return NULL;
   
   hid_t type_id = H5Aget_type(attr_id);
-  size_t size = H5Tget_size(type_id);
-  
-  char *buffer = malloc(size + 1);
-  if (!buffer) {
-    H5Tclose(type_id);
-    H5Aclose(attr_id);
-    return NULL;
-  }
-  
-  if (H5Aread(attr_id, type_id, buffer) < 0) {
-    free(buffer);
-    buffer = NULL;
+  char *buffer = NULL;
+
+  if (H5Tis_variable_str(type_id) > 0) {
+    char *vlen_buffer = NULL;
+    if (H5Aread(attr_id, type_id, &vlen_buffer) >= 0 && vlen_buffer) {
+      buffer = strdup(vlen_buffer);
+      H5free_memory(vlen_buffer);
+    }
   } else {
-    buffer[size] = '\0';
+    size_t size = H5Tget_size(type_id);
+    buffer = malloc(size + 1);
+    if (buffer) {
+      if (H5Aread(attr_id, type_id, buffer) < 0) {
+        free(buffer);
+        buffer = NULL;
+      } else {
+        buffer[size] = '\0';
+      }
+    }
   }
   
   H5Tclose(type_id);
   H5Aclose(attr_id);
   return buffer;
+}
+
+static bool detect_fast5_is_multi_read(hid_t file_id) {
+  char *file_type = read_string_attribute(file_id, "file_type");
+  if (file_type) {
+    bool is_multi = strcmp(file_type, "multi-read") == 0;
+    free(file_type);
+    return is_multi;
+  }
+
+  hsize_t num_objs;
+  if (H5Gget_num_objs(file_id, &num_objs) >= 0 && num_objs > 0) {
+    for (hsize_t i = 0; i < num_objs && i < 5; i++) {
+      char obj_name[256];
+      if (H5Gget_objname_by_idx(file_id, i, obj_name, sizeof(obj_name)) >= 0) {
+        if (strncmp(obj_name, "read_", 5) == 0) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
 }
 
 // Helper function to read uint32 attribute
@@ -1001,29 +1029,7 @@ fast5_metadata_t* read_fast5_metadata_with_enhancer(const char *filename, size_t
   
   fast5_metadata_t *metadata = NULL;
   
-  // Format detection (same logic as original)
-  bool is_multi_read = false;
-  
-  // Check for file_type attribute first
-  htri_t attr_exists = H5Aexists(file_id, "file_type");
-  if (attr_exists > 0) {
-    is_multi_read = true;
-  } else {
-    // No file_type attribute - check for read_* groups at root level
-    hsize_t num_objs;
-    if (H5Gget_num_objs(file_id, &num_objs) >= 0 && num_objs > 0) {
-      // Check first few objects for read_ pattern
-      for (hsize_t i = 0; i < num_objs && i < 5; i++) {
-        char obj_name[256];
-        if (H5Gget_objname_by_idx(file_id, i, obj_name, sizeof(obj_name)) >= 0) {
-          if (strncmp(obj_name, "read_", 5) == 0) {
-            is_multi_read = true;
-            break;
-          }
-        }
-      }
-    }
-  }
+  bool is_multi_read = detect_fast5_is_multi_read(file_id);
   
   // Call the appropriate enhanced helper function
   if (is_multi_read) {
@@ -1219,29 +1225,7 @@ float* read_fast5_signal(const char *filename, const char *read_id, size_t *sign
   
   float *signal = NULL;
   
-  // Improved format detection - check multiple indicators
-  bool is_multi_read = false;
-  
-  // Check for file_type attribute first
-  htri_t attr_exists = H5Aexists(file_id, "file_type");
-  if (attr_exists > 0) {
-    is_multi_read = true;
-  } else {
-    // No file_type attribute - check for read_* groups at root level
-    hsize_t num_objs;
-    if (H5Gget_num_objs(file_id, &num_objs) >= 0 && num_objs > 0) {
-      // Check first few objects for read_ pattern
-      for (hsize_t i = 0; i < num_objs && i < 5; i++) {
-        char obj_name[256];
-        if (H5Gget_objname_by_idx(file_id, i, obj_name, sizeof(obj_name)) >= 0) {
-          if (strncmp(obj_name, "read_", 5) == 0) {
-            is_multi_read = true;
-            break;
-          }
-        }
-      }
-    }
-  }
+  bool is_multi_read = detect_fast5_is_multi_read(file_id);
   
   if (is_multi_read) {
     signal = read_multi_read_signal(file_id, read_id, signal_length);
