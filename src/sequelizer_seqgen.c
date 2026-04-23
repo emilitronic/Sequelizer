@@ -65,6 +65,7 @@ Generates signals from read sequences: squiggle, raw, and event sequences.
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <time.h>
 #include <ctype.h>      // For isdigit()
 #include <err.h>
 #include <argp.h>
@@ -872,6 +873,8 @@ int main_seqgen(int argc, char *argv[]) {
   // Initialize random seed if requested
   if (arguments.use_seed) {
     srand(arguments.seed);
+  } else {
+    srand((unsigned int)time(NULL));
   }
 
   // Fast5 mode: prepare arrays to collect data

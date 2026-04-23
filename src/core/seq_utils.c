@@ -9,7 +9,6 @@
 k-mers as integer indexes representing lexicographical order. */
 #include <string.h>
 #include <stdlib.h>    // need this for rand
-#include <time.h>      // need this for time
 #include <unistd.h>    // on macOS POSIX read() lives in <unistd.h>, not in <stdio.h>
 #include <ctype.h>     // for toupper
 
@@ -20,12 +19,16 @@ k-mers as integer indexes representing lexicographical order. */
 // generates a random string of length len that only
 // consists of letters drawn from the alphabet: A,C,G,T
 // e.g., generates: AAACAAGCCT
+//
+// Note: callers are responsible for seeding the global RNG once at
+// program startup. This function must not reseed per sequence, or
+// synthetic seqgen loops will repeat the same read many times when
+// multiple reads are generated within the same second.
 char* random_str(int len) {
   char alphabet[] = "ACGT";
   int alphabet_size = strlen(alphabet);
 
   char* result = (char*)malloc((len + 1) * sizeof(char));
-  srand(time(NULL));
   for (int i = 0; i < len; i++) {
     int random_index = rand() % alphabet_size;
     result[i] = alphabet[random_index];
@@ -65,7 +68,6 @@ char** random_str_batch(int len, int num_examples) {
   int alphabet_size = strlen(alphabet);
 
   char** results = (char**)malloc(num_examples * sizeof(char*));
-  srand(time(NULL));
 
   for (int i = 0; i < num_examples; i++) {
     char* result = (char*)malloc((len + 1) * sizeof(char));
@@ -272,4 +274,3 @@ int * encode_bases_to_integers(char const * seq, size_t n, size_t state_len){
 
   return iseq;
 }
-
