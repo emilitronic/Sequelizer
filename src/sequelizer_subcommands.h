@@ -12,12 +12,14 @@
 #include "sequelizer_convert.h"
 #include "sequelizer_plot.h"
 #include "sequelizer_seqgen.h"
+#include "sequelizer_bcall.h"
 
 enum sequelizer_mode {SEQUELIZER_MODE_HELP=0,
                       SEQUELIZER_MODE_SEQGEN,
                       SEQUELIZER_MODE_FAST5,
                       SEQUELIZER_MODE_CONVERT,
                       SEQUELIZER_MODE_PLOT,
+                      SEQUELIZER_MODE_BCALL,
                       SEQUELIZER_MODE_INVALID };
 static const enum sequelizer_mode sequelizer_ncommand = SEQUELIZER_MODE_INVALID;
 

@@ -22,6 +22,9 @@ enum sequelizer_mode get_sequelizer_mode(const char *modestr) {
   if (0 == strcmp(modestr, "plot")) {
     return SEQUELIZER_MODE_PLOT;
   }
+  if (0 == strcmp(modestr, "bcall")) {
+    return SEQUELIZER_MODE_BCALL;
+  }
   return SEQUELIZER_MODE_INVALID;
 }
 
@@ -37,6 +40,8 @@ const char *sequelizer_mode_string(const enum sequelizer_mode mode) {
       return "convert";
     case SEQUELIZER_MODE_PLOT:
       return "plot";
+    case SEQUELIZER_MODE_BCALL:
+      return "bcall";
     case SEQUELIZER_MODE_INVALID:
       errx(EXIT_FAILURE, "Invalid Sequelizer mode\n");
     default:
@@ -57,6 +62,8 @@ const char *sequelizer_mode_description(const enum sequelizer_mode mode) {
       return "File format conversion";
     case SEQUELIZER_MODE_PLOT:
       return "Signal visualization and plotting";
+    case SEQUELIZER_MODE_BCALL:
+      return "Basecall raw nanopore signals to DNA sequences";
     case SEQUELIZER_MODE_INVALID:
       errx(EXIT_FAILURE, "Invalid Sequelizer mode\n");
     default:
@@ -83,6 +90,7 @@ int main_help_short(void) {
   printf("* sequelizer fast5         Fast5 file operations\n");
   printf("* sequelizer convert       File format conversion\n");
   printf("* sequelizer plot          Signal visualization and plotting\n");
+  printf("* sequelizer bcall         Basecall raw nanopore signals to DNA sequences\n");
   printf("\nFor more information: sequelizer help\n");
   return EXIT_SUCCESS;
 }
