@@ -104,6 +104,7 @@ sequelizer_summary.txt
 docs/_build/
 # Ignore Jekyll output directory
 docs/_site
+plans
 
 # ----------------------------------------------------------------------
 #  Jupyter notebooks—outputs (optional)

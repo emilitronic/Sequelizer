@@ -4,6 +4,9 @@ project(Sequelizer VERSION 0.1.0)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_BUILD_TYPE Release)
 
+option(SEQUELIZER_ENABLE_SLOW5 "Enable SLOW5/BLOW5 support via slow5lib" OFF)
+set(SLOW5LIB_ROOT "" CACHE PATH "Path to a slow5lib checkout or install prefix")
+
 # HDF5 dependency for Fast5 file I/O
 if(APPLE)
     set(HDF5_ROOT "/opt/homebrew/opt/hdf5")
@@ -29,6 +32,46 @@ if(APPLE)
     endif()
 else()
     find_library(OPENBLAS_LIBRARY NAMES openblas REQUIRED)
+endif()
+
+# Optional slow5lib dependency for SLOW5/BLOW5 support.
+# By default Sequelizer builds without this dependency. Enable with:
+#   cmake .. -DSEQUELIZER_ENABLE_SLOW5=ON -DSLOW5LIB_ROOT=/path/to/slow5lib
+if(SEQUELIZER_ENABLE_SLOW5)
+    find_path(SLOW5_INCLUDE_DIR
+        NAMES slow5/slow5.h
+        HINTS
+            ${SLOW5LIB_ROOT}
+            ${SLOW5LIB_ROOT}/include
+            /opt/homebrew
+            /opt/homebrew/include
+            /usr/local
+            /usr/local/include
+        PATH_SUFFIXES include
+    )
+
+    find_library(SLOW5_LIBRARY
+        NAMES libslow5.a slow5
+        HINTS
+            ${SLOW5LIB_ROOT}
+            ${SLOW5LIB_ROOT}/lib
+            /opt/homebrew
+            /opt/homebrew/lib
+            /usr/local
+            /usr/local/lib
+        PATH_SUFFIXES lib
+    )
+
+    if(NOT SLOW5_INCLUDE_DIR OR NOT SLOW5_LIBRARY)
+        message(FATAL_ERROR
+            "SLOW5 support requested but slow5lib was not found. "
+            "Set -DSLOW5LIB_ROOT=/path/to/slow5lib or install slow5lib in a standard prefix."
+        )
+    endif()
+
+    message(STATUS "SLOW5 support enabled")
+    message(STATUS "  slow5 include: ${SLOW5_INCLUDE_DIR}")
+    message(STATUS "  slow5 library: ${SLOW5_LIBRARY}")
 endif()
 
 # Source files
@@ -62,6 +105,11 @@ set(SEQUELIZER_INCLUDE_DIRS
 # Sequelizer static library
 add_library(sequelizer_static STATIC ${SEQUELIZER_SOURCES})
 target_include_directories(sequelizer_static PUBLIC ${SEQUELIZER_INCLUDE_DIRS})
+if(SEQUELIZER_ENABLE_SLOW5)
+    target_include_directories(sequelizer_static PUBLIC ${SLOW5_INCLUDE_DIR})
+    target_compile_definitions(sequelizer_static PUBLIC SEQUELIZER_HAVE_SLOW5=1)
+    target_link_libraries(sequelizer_static PUBLIC ${SLOW5_LIBRARY} z m)
+endif()
 
 # Sequelizer executable
 add_executable(sequelizer src/sequelizer.c)
