@@ -11,6 +11,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef SEQUELIZER_HAVE_SLOW5
+#include <slow5/slow5.h>
+#else
+typedef struct slow5_file slow5_file_t;
+typedef struct slow5_rec slow5_rec_t;
+#endif
+
 typedef struct {
   char *read_id;
   char *file_path;
@@ -42,6 +49,10 @@ typedef struct {
   bool has_start_time;
 } slow5_read_t;
 
+typedef void (*slow5_read_enhancer_t)(slow5_file_t *sp,
+                                      const slow5_rec_t *rec,
+                                      slow5_read_t *read);
+
 bool is_slow5_file(const char *filename);
 bool is_blow5_file(const char *filename);
 
@@ -49,6 +60,13 @@ char **find_slow5_files_recursive(const char *directory, size_t *count);
 char **find_slow5_files(const char *input_path, bool recursive, size_t *count);
 void free_slow5_file_list(char **files, size_t count);
 
+void extract_slow5_header_fields(slow5_file_t *sp, const slow5_rec_t *rec, slow5_read_t *read);
+void extract_slow5_aux_fields(slow5_file_t *sp, const slow5_rec_t *rec, slow5_read_t *read);
+
+slow5_read_t *read_slow5_reads_with_enhancer(const char *filename,
+                                             size_t *read_count,
+                                             bool load_signal,
+                                             slow5_read_enhancer_t enhancer);
 slow5_read_t *read_slow5_reads(const char *filename, size_t *read_count, bool load_signal);
 void free_slow5_reads(slow5_read_t *reads, size_t count);
 

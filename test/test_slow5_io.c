@@ -8,6 +8,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static void test_enhancer(slow5_file_t *sp, const slow5_rec_t *rec, slow5_read_t *read) {
+  extract_slow5_header_fields(sp, rec, read);
+  extract_slow5_aux_fields(sp, rec, read);
+}
+
 int main(int argc, char **argv) {
   const char *path = argc > 1 ? argv[1] : NULL;
   if (!path) {
@@ -31,6 +36,8 @@ int main(int argc, char **argv) {
   assert(reads[0].signal_length > 0);
   assert(reads[0].raw_signal != NULL);
   assert(reads[0].digitisation > 0.0);
+  assert(reads[0].run_id == NULL);
+  assert(reads[0].channel_number == NULL);
 
   float *pa_signal = slow5_read_to_pa_signal(&reads[0]);
   assert(pa_signal != NULL);
@@ -43,6 +50,14 @@ int main(int argc, char **argv) {
 
   free(pa_signal);
   free_slow5_reads(reads, read_count);
+
+  size_t enhanced_count = 0;
+  slow5_read_t *enhanced_reads = read_slow5_reads_with_enhancer(files[0], &enhanced_count, false, test_enhancer);
+  assert(enhanced_reads != NULL);
+  assert(enhanced_count == read_count);
+  assert(enhanced_reads[0].read_id != NULL);
+  free_slow5_reads(enhanced_reads, enhanced_count);
+
   free_slow5_file_list(files, file_count);
 
   return 0;

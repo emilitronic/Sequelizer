@@ -202,11 +202,27 @@ static bool copy_signal(int16_t **dest, const slow5_rec_t *rec) {
   return true;
 }
 
-static void populate_aux_fields(slow5_read_t *read, const slow5_rec_t *rec) {
-  if (!rec || !rec->aux_map) return;
+void extract_slow5_header_fields(slow5_file_t *sp, const slow5_rec_t *rec, slow5_read_t *read) {
+  if (!sp || !rec || !read) return;
+
+  free(read->run_id);
+  free(read->flow_cell_id);
+  free(read->sample_id);
+  free(read->experiment_name);
+
+  read->run_id = copy_header_string(sp, rec, "run_id");
+  read->flow_cell_id = copy_header_string(sp, rec, "flow_cell_id");
+  read->sample_id = copy_header_string(sp, rec, "sample_id");
+  read->experiment_name = copy_header_string(sp, rec, "experiment_name");
+}
+
+void extract_slow5_aux_fields(slow5_file_t *sp, const slow5_rec_t *rec, slow5_read_t *read) {
+  (void)sp;
+  if (!rec || !rec->aux_map || !read) return;
 
   int err = 0;
 
+  free(read->channel_number);
   read->channel_number = copy_aux_string(rec, "channel_number");
   read->has_channel_number = read->channel_number != NULL;
 
@@ -228,7 +244,8 @@ static void populate_aux_fields(slow5_read_t *read, const slow5_rec_t *rec) {
 }
 
 static bool populate_read(slow5_read_t *read, const char *filename, slow5_file_t *sp,
-                          const slow5_rec_t *rec, bool load_signal) {
+                          const slow5_rec_t *rec, bool load_signal,
+                          slow5_read_enhancer_t enhancer) {
   read->read_id = copy_slow5_string(rec->read_id);
   read->file_path = copy_slow5_string(filename);
   read->signal_length = rec->len_raw_signal;
@@ -238,21 +255,19 @@ static bool populate_read(slow5_read_t *read, const char *filename, slow5_file_t
   read->range = rec->range;
   read->sample_rate = rec->sampling_rate;
 
-  read->run_id = copy_header_string(sp, rec, "run_id");
-  read->flow_cell_id = copy_header_string(sp, rec, "flow_cell_id");
-  read->sample_id = copy_header_string(sp, rec, "sample_id");
-  read->experiment_name = copy_header_string(sp, rec, "experiment_name");
-
-  populate_aux_fields(read, rec);
-
   if (load_signal && !copy_signal(&read->raw_signal, rec)) {
     return false;
+  }
+
+  if (enhancer) {
+    enhancer(sp, rec, read);
   }
 
   return read->read_id != NULL && read->file_path != NULL;
 }
 
-slow5_read_t *read_slow5_reads(const char *filename, size_t *read_count, bool load_signal) {
+slow5_read_t *read_slow5_reads_with_enhancer(const char *filename, size_t *read_count,
+                                             bool load_signal, slow5_read_enhancer_t enhancer) {
   if (!filename || !read_count) return NULL;
   *read_count = 0;
 
@@ -281,7 +296,7 @@ slow5_read_t *read_slow5_reads(const char *filename, size_t *read_count, bool lo
     }
 
     memset(&reads[*read_count], 0, sizeof(slow5_read_t));
-    if (!populate_read(&reads[*read_count], filename, sp, rec, load_signal)) {
+    if (!populate_read(&reads[*read_count], filename, sp, rec, load_signal, enhancer)) {
       slow5_rec_free(rec);
       slow5_close(sp);
       free_slow5_reads(reads, *read_count + 1);
@@ -302,6 +317,10 @@ slow5_read_t *read_slow5_reads(const char *filename, size_t *read_count, bool lo
   }
 
   return reads;
+}
+
+slow5_read_t *read_slow5_reads(const char *filename, size_t *read_count, bool load_signal) {
+  return read_slow5_reads_with_enhancer(filename, read_count, load_signal, NULL);
 }
 
 void free_slow5_reads(slow5_read_t *reads, size_t count) {
@@ -377,6 +396,30 @@ void free_slow5_file_list(char **files, size_t count) {
 slow5_read_t *read_slow5_reads(const char *filename, size_t *read_count, bool load_signal) {
   (void)filename;
   (void)load_signal;
+  if (read_count) *read_count = 0;
+  slow5_support_unavailable();
+  return NULL;
+}
+
+void extract_slow5_header_fields(slow5_file_t *sp, const slow5_rec_t *rec, slow5_read_t *read) {
+  (void)sp;
+  (void)rec;
+  (void)read;
+  slow5_support_unavailable();
+}
+
+void extract_slow5_aux_fields(slow5_file_t *sp, const slow5_rec_t *rec, slow5_read_t *read) {
+  (void)sp;
+  (void)rec;
+  (void)read;
+  slow5_support_unavailable();
+}
+
+slow5_read_t *read_slow5_reads_with_enhancer(const char *filename, size_t *read_count,
+                                             bool load_signal, slow5_read_enhancer_t enhancer) {
+  (void)filename;
+  (void)load_signal;
+  (void)enhancer;
   if (read_count) *read_count = 0;
   slow5_support_unavailable();
   return NULL;
