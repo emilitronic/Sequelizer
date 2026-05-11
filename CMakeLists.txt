@@ -94,6 +94,9 @@ set(SEQUELIZER_SOURCES
     src/core/util.c
     src/core/kmer_model_loader.c
 )
+if(SEQUELIZER_ENABLE_SLOW5)
+    list(APPEND SEQUELIZER_SOURCES src/core/slow5_io.c)
+endif()
 
 # Common include directories
 set(SEQUELIZER_INCLUDE_DIRS
@@ -136,6 +139,12 @@ target_link_libraries(test_seqgen PRIVATE sequelizer_static m)
 add_executable(test_seqgen_models test/test_seqgen_models.c)
 target_include_directories(test_seqgen_models PRIVATE ${SEQUELIZER_INCLUDE_DIRS})
 target_link_libraries(test_seqgen_models PRIVATE sequelizer_static m)
+
+if(SEQUELIZER_ENABLE_SLOW5)
+  add_executable(test_slow5_io test/test_slow5_io.c)
+  target_include_directories(test_slow5_io PRIVATE ${SEQUELIZER_INCLUDE_DIRS})
+  target_link_libraries(test_slow5_io PRIVATE sequelizer_static)
+endif()
 
 # Install
 install(TARGETS sequelizer RUNTIME DESTINATION bin)
